@@ -5,8 +5,10 @@ run
 db
 source
 docroot
-templates
 log
 conf
 Plerd-*
 /MYMETA.*
+resources
+provides
+extra-files

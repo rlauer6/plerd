@@ -1,0 +1,30 @@
+project:
+  description: Plerd
+  author:
+    name: Rob Lauer
+    mailto: rlauer6@comcast.net
+pm_module: Plerd
+min-perl-version: 5.010
+dependencies:
+  requires: requires
+  test_requires: test-requires
+path:
+  pm_module: lib
+  tests: t
+  scripts: bin
+extra-files:
+  - Changes
+  - README.pod
+  - share:
+      - templates
+  - share/t/source_model:
+      - t/source_model
+resources:
+  homepage: http://github.com/rlauer6/plerd.git
+  bugtracker:
+    web: http://github.com/rlauer6/plerd/issues
+    mailto: rlauer6@comcast.net
+  repository:
+    url: git://github.com/rlauer6/plerd.git
+    web: http://github.com/rlauer6/plerd
+    type: 'git'

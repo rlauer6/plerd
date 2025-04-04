@@ -5,78 +5,83 @@ use strict;
 
 use FindBin;
 use lib
-    "$FindBin::Bin/../lib",
-;
+  "$FindBin::Bin/../lib",
+  ;
 
-use Getopt::Long;
-
-use Plerd;
-use Plerd::Util;
-use Plerd::Init;
 use Cwd;
+use Getopt::Long;
 use Path::Class::Dir;
-
+use Plerd::Init;
+use Plerd::Util;
+use Plerd;
 use Text::Wrap qw(wrap);
 
 use Readonly;
 Readonly my $DEFAULT_INIT_PATH => 'plerd';
 
-my $webmention_enabled  = 0;
-my $process_webmentions = 0;
-my $rebuild_webmentions = 0;
+Readonly my $TRUE  => 1;
+Readonly my $FALSE => 0;
+
+my $webmention_enabled  = $FALSE;
+my $process_webmentions = $FALSE;
+my $rebuild_webmentions = $FALSE;
+
 my $config_file;
 my $init_path;
+
 GetOptions(
-    'send-webmentions'    => \$webmention_enabled,
-    'process-webmentions' => \$process_webmentions,
-    'rebuild-webmentions' => \$rebuild_webmentions,
-    'config=s'            => \$config_file,
-    'init:s'              => \$init_path,
+  'send-webmentions'    => \$webmention_enabled,
+  'process-webmentions' => \$process_webmentions,
+  'rebuild-webmentions' => \$rebuild_webmentions,
+  'config=s'            => \$config_file,
+  'init:s'              => \$init_path,
 );
 
-if ($process_webmentions or $rebuild_webmentions) {
-    die "Plerd ended its experimental Webmention receipt support in version "
-        . "1.900. Please re-run this command without those "
-        . "options. (Or use an older version of Plerd.)\n";
-}
+die 'Plerd ended its experimental Webmention receipt support in version '
+  . '1.900. Please re-run this command without those '
+  . "options. (Or use an older version of Plerd.)\n"
+  if $process_webmentions or $rebuild_webmentions;
 
 if ( defined $init_path ) {
-    my $is_using_default = 0;
-    unless ( length $init_path ) {
-        $init_path = Path::Class::Dir->new(
-            cwd,
-            $DEFAULT_INIT_PATH,
-        )->stringify;
-        $is_using_default = 1;
-    }
-    my $messages = Plerd::Init::initialize( $init_path, $is_using_default );
-    print wrap( q{}, q{}, @$messages );
-    print "\n";
-    exit;
+  $init_path ||= $DEFAULT_INIT_PATH;
+
+  my $messages = Plerd::Init::initialize($init_path);
+
+  print wrap( q{}, q{}, @{$messages} // '' );
+
+  print "\n";
+
+  exit;
 }
 
-my $config_ref = Plerd::Util::read_config_file( $config_file );
+my $config_ref = Plerd::Util::read_config_file($config_file);
 
-foreach (qw( base_uri image ) ) {
-    unless ( ref $config_ref->{ $_ } ) {
-        $config_ref->{ $_ } = URI->new ( $config_ref->{ $_ } );
-    }
+foreach (qw( base_uri image )) {
+  next if ref $config_ref->{$_};
+
+  $config_ref->{$_} = URI->new( $config_ref->{$_} );
 }
 
-my $plerd = Plerd->new( $config_ref );
+my $plerd = Plerd->new($config_ref);
 
 $plerd->publish_all;
 
-if ( $webmention_enabled ) {
-    print "Sending webmentions for all posts!\n";
-    for my $post ( @{ $plerd->posts } ) {
-        print $post->source_file . "...\n";
-        my $report = $post->send_webmentions;
-        print "$report->{attempts} attempts, "
-              . "$report->{sent} sent, "
-              . "$report->{delivered} delivered.\n";
-    }
+if ($webmention_enabled) {
+  print "Sending webmentions for all posts!\n";
+
+  for my $post ( @{ $plerd->posts } ) {
+    print $post->source_file . "...\n";
+
+    my $report = $post->send_webmentions;
+    print "$report->{attempts} attempts, " . "$report->{sent} sent, " . "$report->{delivered} delivered.\n";
+  }
 }
+
+1;
+
+__END__
+
+=pod
 
 =head1 NAME
 
@@ -182,3 +187,5 @@ L<Plerd>
 =head1 AUTHOR
 
 Jason McIntosh <jmac@jmac.org>
+
+=cut

@@ -1,118 +1,122 @@
 #!/usr/bin/env perl
 
-use warnings;
 use strict;
+use warnings;
 
 use FindBin;
 use lib
-    "$FindBin::Bin/../lib",
-;
+  "$FindBin::Bin/../lib",
+  ;
 
-use File::ChangeNotify;
-use Path::Class::File;
 use App::Daemon qw( daemonize );
-use Try::Tiny;
-use Log::Log4perl qw( :easy );
+use File::ChangeNotify;
+use English qw(-no_match_vars);
 use Getopt::Long;
-
-use Plerd;
+use Log::Log4perl qw( :easy );
+use Path::Class::File;
 use Plerd::Util;
+use Plerd;
+use Try::Tiny;
 
 my $webmention_enabled = 0;
-my $webmention_port  = 0;
+my $webmention_port    = 0;
 my $config_file;
+
 GetOptions(
-    'config=s'              => \$config_file,
-    'send-webmentions'      => \$webmention_enabled,
-    'receive-webmentions=i' => \$webmention_port,
+  'config=s'              => \$config_file,
+  'send-webmentions'      => \$webmention_enabled,
+  'receive-webmentions=i' => \$webmention_port,
 );
 
-if ($webmention_port) {
-    die "Plerd ended its experimental Webmention receipt support in version "
-        . "1.900. Please re-run this command without the `receive-webmentions` "
-        . "option. (Or use an older version of Plerd.)\n";
+die 'Plerd ended its experimental Webmention receipt support in version '
+  . '1.900. Please re-run this command without the `receive-webmentions` '
+  . "option. (Or use an older version of Plerd.)\n"
+  if $webmention_port;
+
+my $config_ref = Plerd::Util::read_config_file($config_file);
+
+for my $dir_type (qw( run log )) {
+  if ( !$config_ref->{"${dir_type}_path"} ) {
+    if ( $config_ref->{path} ) {
+      $config_ref->{"${dir_type}_path"} = Path::Class::File->new( $config_ref->{path}, $dir_type, )->stringify;
+    }
+    else {
+      $config_ref->{"${dir_type}_path"} = "$FindBin::Bin/../$dir_type";
+    }
+  }
+
+  my $dir = $config_ref->{"${dir_type}_path"};
+
+  if ( !-e $dir ) {
+    mkdir $dir;
+  }
+
+  die "Can't start $PROGRAM_NAME: I don't have write permission to $dir_type "
+    . "directory '$dir'. Either make that directory writeable, "
+    . q{or change Plerd's configuration to use a different }
+    . "location as the $dir_type directory.\n"
+    if !-w $dir;
 }
 
-my $config_ref = Plerd::Util::read_config_file( $config_file );
-
-for my $dir_type ( qw( run log ) ) {
-    unless ( $config_ref->{ "${dir_type}_path" } ) {
-        if ( $config_ref->{ path } ) {
-            $config_ref->{ "${dir_type}_path" } =
-                Path::Class::File->new(
-                    $config_ref->{path},
-                    $dir_type,
-                )->stringify;
-        }
-        else {
-            $config_ref->{ "${dir_type}_path" } =
-                "$FindBin::Bin/../$dir_type";
-        }
-    }
-    my $dir = $config_ref->{ "${dir_type}_path" };
-    mkdir $dir unless -e $dir;
-    unless (-w $dir) {
-        die "Can't start $0: I don't have write permission to $dir_type "
-            . "directory '$dir'. Either make that directory writeable, "
-            . "or change Plerd's configuration to use a different "
-            . "location as the $dir_type directory.\n";
-    }
-}
-$App::Daemon::logfile = "$$config_ref{log_path}/plerdwatcher.log";
-$App::Daemon::pidfile = "$$config_ref{run_path}/plerdwatcher.pid";
+$App::Daemon::logfile = sprintf '%s/plerdwatcher.log', $config_ref->{log_path};
+$App::Daemon::pidfile = sprintf '%s/plerdwatcher.pid', $config_ref->{run_path};
 
 daemonize();
 
-foreach (qw( base_uri image ) ) {
-    unless ( ref $config_ref->{ $_ } ) {
-        $config_ref->{ $_ } = URI->new ( $config_ref->{ $_ } );
-    }
+foreach (qw( base_uri image )) {
+  next if ref $config_ref->{$_};
+
+  $config_ref->{$_} = URI->new( $config_ref->{$_} );
 }
 
 my $plerd;
 my $watcher;
-try {
-    $plerd = Plerd->new( $config_ref );
 
-    $watcher = File::ChangeNotify->instantiate_watcher (
-        directories => [ $plerd->source_directory . '' ],
-        filter      => qr/\.(md|markdown)$/,
-    );
+try {
+  $plerd = Plerd->new($config_ref);
+
+  $watcher = File::ChangeNotify->instantiate_watcher(
+    directories => [ $plerd->source_directory . q{} ],
+    filter      => qr/[.](md|markdown)$/xsm,
+  );
 }
 catch {
-    ERROR "Couldn't start Plerd: $_";
+  ERROR "Couldn't start Plerd: $_";
 };
 
 while ( my @events = $watcher->wait_for_events ) {
-    if ( @events ) {
-        try {
-            $plerd->publish_all;
-            for my $event ( @events ) {
-                if (
-                    (
-                        ( $event->type eq 'create' )
-                        or ( $event->type eq 'modify' )
-                    )
-                    and $webmention_enabled
-                ) {
-                    my $file = Path::Class::File->new( $event->path );
-                    my $post = Plerd::Post->new(
-                        source_file => $file,
-                        plerd => $plerd,
-                    );
-                    INFO "Sending webmentions for $file...";
-                    my $report = $post->send_webmentions;
-                    INFO "$report->{attempts} attempts, "
-                         . "$report->{sent} sent, "
-                         . "$report->{delivered} delivered.";
-                }
-            }
+  if (@events) {
+    try {
+      $plerd->publish_all;
+      for my $event (@events) {
+
+        if ( $webmention_enabled && $event->type =~ /create|modify/xsm ) {
+          my $file = Path::Class::File->new( $event->path );
+
+          my $post = Plerd::Post->new(
+            source_file => $file,
+            plerd       => $plerd,
+          );
+
+          INFO "Sending webmentions for $file...";
+
+          my $report = $post->send_webmentions;
+
+          INFO "$report->{attempts} attempts, " . "$report->{sent} sent, " . "$report->{delivered} delivered.";
         }
-        catch {
-            ERROR "Failed to publish: $_\n";
-        };
+      }
     }
+    catch {
+      ERROR "Failed to publish: $_\n";
+    };
+  }
 }
+
+1;
+
+__END__
+
+=pod
 
 =head1 NAME
 

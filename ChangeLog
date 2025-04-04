@@ -1,0 +1,36 @@
+Fri Apr  4 07:55:28 2025  Rob Lauer  <rlauer6@comcast.net>
+
+	[2.0.0]: BigFoot version
+
+	* .travis.yml: replaced with new build system
+	* Build.PL: likewise
+	* Makefile.PL: likewise
+	* minil.toml: likewise
+	* META.json: likewise
+	* cpanfile: likewise
+	* buildspec.yml: new build based on CPAN::Maker
+	* Makefile: likewise
+	* requires: likewise
+	* test-requires: likewise
+	* templates/archive.tt: removed from init for transparency
+	* templates/atom.tt: likewise
+	* templates/config.tt: likewise
+	* templates/jsonfeed.tt: likewise
+	* templates/post.tt: likewise
+	* templates/tags.tt: likewise
+	* templates/wrapper.tt: likewise
+	* .gitignore: refactored
+	* bin/plerdall: refactored
+	* bin/plerdwatcher: refactored
+	* lib/Plerd.pm: refactored
+	* lib/Plerd/Init.pm: refactored
+	* lib/Plerd/Post.pm: refactored
+	* t/basic.t: refactored
+	* t/daemon.t: refactored
+	* t/init.t: refactored
+	* README.md
+	* README.pod
+
+
+
+
