@@ -1,6 +1,6 @@
 package Plerd;
 
-our $VERSION = '2.0.0';
+our $VERSION = '@PACKAGE_VERSION@';
 
 use Carp;
 use DateTime::Format::W3CDTF;

@@ -1,15 +1,38 @@
 #-*- mode: makefile -*-
 
+SHELL := /bin/bash
+
 CPAN_DIST_MAKER=make-cpan-dist.pl
 
-package_version := $(shell perl -I lib -MPlerd -e 'print $$Plerd::VERSION;')
+package_version := $(shell cat VERSION)
+
+VERSION ?= $(shell cat VERSION);
+
+PERL_MODULES = \
+    lib/Plerd.pm \
+    lib/Plerd/Init.pm \
+    lib/Plerd/Post.pm \
+    lib/Plerd/SmartyPants.pm \
+    lib/Plerd/Tag.pm \
+    lib/Plerd/Util.pm
+
+%.pm: %.pm.in
+	sed -e 's/[@]PACKAGE_VERSION[@]/$(package_version)/' $< > $@
+
 package=Plerd
+
+TARBALL = $(package)-$(package_version).tar.gz
+
+all: $(TARBALL) README.md
 
 README.md: README.pod
 	pod2markdown $< > $@
 
+.PHONY: cpan
 # builds the distribution tarball and renames based on package version
-cpan: buildspec.yml README.md
+cpan: $(TARBALL)
+
+$(TARBALL): buildspec.yml $(PERL_MODULES) README.md
 	test -n "$$DEBUG" && set -x; \
 	test -n "$$DEBUG" && DEBUG="--debug"; \
 	test -e requires && REQUIRES="-r requires"; \
@@ -20,18 +43,14 @@ cpan: buildspec.yml README.md
 	PROJECT_ROOT="--project-root $$(readlink -f .)"; \
 	$(CPAN_DIST_MAKER) $$PROJECT_ROOT $$REQUIRES $$DRYRUN $$SCANDEPS $$NOVERSION $$NOCLEANUP $$DEBUG -b $< || echo "$$?"
 
-# handle n.m.r-b version format (but don't use this anymore!)
-	if test -n "$$(echo $(package_version) | grep '\-')"; then \
-		echo $$package_version; \
-		package_version=$(package_version); package=$(package); \
-		tarball=$${package##perl-}-$${package_version%%-*}.tar.gz; \
-		test -e "$$tarball" && mv $$tarball $${package##perl-}-$$package_version.tar.gz; \
-	fi
-
 CLEANFILES = \
     extra-files \
     provides \
     resources 
+
+include version.mk
+
+include release-notes.mk
 
 clean-local:
 	for a in $(CLEANFILES); do \

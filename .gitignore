@@ -12,3 +12,8 @@ Plerd-*
 resources
 provides
 extra-files
+**/*.pm
+*.tmp
+*.tar.gz
+*.lst
+*.diffs

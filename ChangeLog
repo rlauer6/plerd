@@ -1,3 +1,20 @@
+Tue Mar 17 14:23:31 2026  Rob Lauer  <rlauer6@comcast.net>
+
+	[2.0.1]:
+	* VERSION: bump
+	* .gitignore: add *.pm, *.tmp
+	* Makefile
+	- make from .in files
+	- added version.mk, release-notes.mk
+	* lib/Plerd.pm: add version
+	* lib/Plerd/Init.pm.in: renamed
+	* lib/Plerd/Post.pm.in: renamed
+	* lib/Plerd/SmartyPants.pm.in: renamed
+	* lib/Plerd/Tag.in: renamed
+	* lib/Plerd/Util.pm.in: renamed
+	* version.mk: new
+	* release-notes.mk: new
+
 Fri Apr  4 07:55:28 2025  Rob Lauer  <rlauer6@comcast.net>
 
 	[2.0.0]: BigFoot version
